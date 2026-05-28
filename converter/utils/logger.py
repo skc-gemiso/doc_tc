@@ -21,7 +21,7 @@ def get_logger(name: str = "converter") -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
-    fmt = logging.Formatter("[%(levelname)s] %(message)s")
+    fmt = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     file_handler.setFormatter(fmt)
     console_handler.setFormatter(fmt)
 
