@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+converter/temp/*
+converter/logs/*
+!converter/temp/.gitkeep
+!converter/logs/.gitkeep
