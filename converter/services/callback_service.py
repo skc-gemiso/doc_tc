@@ -1,3 +1,4 @@
+import json
 import time
 from typing import Optional
 
@@ -40,11 +41,14 @@ def send_callback(
             "data": {"taskId": task_id},
         }
 
+    logger.info(f"CALLBACK URL : {url}")
+    logger.info(f"CALLBACK PAYLOAD : {json.dumps(payload, ensure_ascii=False)}")
+
     for attempt in range(1, RETRY_COUNT + 1):
         try:
             resp = requests.post(url, json=payload, timeout=TIMEOUT_SEC)
             resp.raise_for_status()
-            logger.info("CALLBACK SUCCESS")
+            logger.info(f"CALLBACK SUCCESS : status={resp.status_code}")
             return
         except requests.RequestException as e:
             logger.warning(f"Callback attempt {attempt}/{RETRY_COUNT} failed: {e}")
