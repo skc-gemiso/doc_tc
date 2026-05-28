@@ -18,6 +18,9 @@ class DocumentConverter:
     def run(self, task: ConvertTask) -> None:
         start = time.time()
         logger.info(f"TASK START : {task.taskId}")
+        logger.info(f"REQUEST srcPath={task.srcPath} tarPath={task.tarPath} "
+                    f"isThumbNail={task.isThumbNail} isCatalog={task.isCatalog} "
+                    f"width={task.width} height={task.height} callBack={task.callBack}")
 
         try:
             self._validate(task)
