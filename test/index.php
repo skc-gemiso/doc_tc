@@ -1,9 +1,9 @@
 <?php
 define('PYTHON_BIN',  'python3.12');
-define('MAIN_PY',     '/app/doc_tc/main.py');
-define('INPUT_DIR',   '/app/test/input');
-define('OUTPUT_DIR',  '/app/test/output');
-define('CALLBACK_URL', 'http://localhost/test/callback.php');
+define('MAIN_PY',     '/app/proxima-v6/external/doc_tc/doc_tc.py');
+define('INPUT_DIR',   '/app/proxima-v6/tests/input');
+define('OUTPUT_DIR',  '/app/proxima-v6/tests/output');
+define('CALLBACK_URL', 'http://localhost/tests/callback.php');
 
 $message = '';
 $result  = null;

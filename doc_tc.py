@@ -2,8 +2,8 @@
 """
 CLI entry point
 
-파일 지정:  python main.py task.json
-stdin 입력: echo '{"taskId":1,...}' | python main.py
+파일 지정:  python doc_tc.py task.json
+stdin 입력: echo '{"taskId":1,...}' | python doc_tc.py
 """
 import json
 import sys
