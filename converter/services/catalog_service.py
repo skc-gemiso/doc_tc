@@ -29,5 +29,4 @@ def create_catalog(pdf_path: str, tar_path: str) -> str:
     finally:
         doc.close()
 
-    logger.info("CATALOG CREATED")
     return catalog_dir

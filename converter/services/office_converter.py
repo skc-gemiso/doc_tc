@@ -54,5 +54,4 @@ def convert_to_pdf(src_path: str, tar_path: str) -> str:
         finally:
             shutil.rmtree(user_profile, ignore_errors=True)
 
-    logger.info("PDF CREATED")
     return tar_path

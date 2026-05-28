@@ -29,7 +29,6 @@ def create_thumbnail(pdf_path: str, tar_path: str, width: int, height: int) -> s
     finally:
         doc.close()
 
-    logger.info("THUMB CREATED")
     return thumb_path
 
 

@@ -1,3 +1,5 @@
+import time
+
 import fitz  # PyMuPDF
 
 from .models.task import ConvertTask
@@ -14,12 +16,15 @@ logger = get_logger()
 class DocumentConverter:
 
     def run(self, task: ConvertTask) -> None:
+        start = time.time()
         logger.info(f"TASK START : {task.taskId}")
 
         try:
             self._validate(task)
 
+            t = time.time()
             pdf_path = convert_to_pdf(task.srcPath, task.tarPath)
+            logger.info(f"PDF CREATED : {time.time() - t:.2f}s")
 
             img_path = None
             catalog_path = None
@@ -27,10 +32,14 @@ class DocumentConverter:
             page_count = self._get_page_count(pdf_path)
 
             if task.isThumbNail:
+                t = time.time()
                 img_path = create_thumbnail(pdf_path, task.tarPath, task.width, task.height)
+                logger.info(f"THUMB CREATED : {time.time() - t:.2f}s")
 
             if task.isCatalog:
+                t = time.time()
                 catalog_path = create_catalog(pdf_path, task.tarPath)
+                logger.info(f"CATALOG CREATED : {time.time() - t:.2f}s")
 
             send_callback(
                 url=task.callBack,
@@ -43,7 +52,8 @@ class DocumentConverter:
             )
 
         except Exception as exc:
-            logger.error(f"TASK FAILED : {task.taskId} - {exc}")
+            elapsed = time.time() - start
+            logger.error(f"TASK FAILED : {task.taskId} - {exc} ({elapsed:.2f}s)")
             try:
                 send_callback(
                     url=task.callBack,
@@ -55,7 +65,8 @@ class DocumentConverter:
                 logger.error(f"CALLBACK ERROR : {cb_exc}")
             raise
 
-        logger.info("TASK END")
+        elapsed = time.time() - start
+        logger.info(f"TASK END : {task.taskId} ({elapsed:.2f}s)")
 
     def _validate(self, task: ConvertTask) -> None:
         validate_src_path(task.srcPath)
