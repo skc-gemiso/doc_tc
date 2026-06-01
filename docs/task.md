@@ -65,10 +65,10 @@ Python 기반 문서 변환 모듈이 호출되어 다음 작업을 수행한다
 ## 전체 흐름
 
 ```text
-외부 API 서버
-    ↓
-Python 변환 모듈 호출
-    ↓
+외부 API 서버 (PHP)
+    ↓ stdin JSON 전달
+doc_tc.py 호출 → 즉시 리턴
+    ↓ 백그라운드 프로세스
 PDF 생성
     ↓
 Thumbnail 생성
@@ -95,6 +95,42 @@ Callback URL 호출
 
 # 6. 모듈 호출 방식
 
+## PHP에서 호출 (운영 방식)
+
+```php
+$task = json_encode([
+    'taskId'      => 1,
+    'srcPath'     => '/app/input/test.pptx',
+    'isThumbNail' => true,
+    'isCatalog'   => true,
+    'width'       => 700,
+    'height'      => 500,
+    'tarPath'     => '/app/output/test.pdf',
+    'callBack'    => 'http://your-server/callback',
+], JSON_UNESCAPED_UNICODE);
+
+$cmd = sprintf(
+    "echo %s | python3.12 /app/proxima-v6/external/doc_tc/doc_tc.py > /dev/null 2>&1 &",
+    escapeshellarg($task)
+);
+
+exec($cmd);
+```
+
+---
+
+## CLI 실행 방식
+
+```bash
+# stdin 입력
+echo '{"taskId":1,...}' | python3.12 doc_tc.py
+
+# 파일 지정
+python3.12 doc_tc.py task.json
+```
+
+---
+
 ## Python 함수 호출
 
 ```python
@@ -105,15 +141,28 @@ run(task)
 
 ---
 
-## CLI 실행 방식
+# 7. 비동기 처리 구조
 
-```bash
-python main.py task.json
+`doc_tc.py`는 호출 즉시 리턴하고, 실제 변환 작업은 백그라운드 프로세스에서 실행된다.
+
+```text
+호출자 (PHP)
+    ↓ echo $json | python3.12 doc_tc.py
+doc_tc.py
+    ├── JSON 읽기
+    ├── 백그라운드 프로세스 생성 (start_new_session=True)
+    └── 즉시 리턴
+            ↓ 백그라운드
+        doc_tc.py --background
+            ├── PDF 변환
+            ├── 썸네일 생성
+            ├── 카탈로그 생성
+            └── Callback 호출
 ```
 
 ---
 
-# 7. Task 데이터 구조
+# 8. Task 데이터 구조
 
 ## Request 예시
 
@@ -132,7 +181,7 @@ python main.py task.json
 
 ---
 
-# 8. Request 항목 정의
+# 9. Request 항목 정의
 
 | 필드명 | 타입 | 필수 | 설명 |
 |---|---|---|---|
@@ -140,14 +189,14 @@ python main.py task.json
 | srcPath | String | O | 원본 파일 경로 |
 | isThumbNail | Boolean | X | 썸네일 생성 여부 |
 | isCatalog | Boolean | X | 카탈로그 생성 여부 |
-| width | Integer | X | 썸네일 가로 크기 |
-| height | Integer | X | 썸네일 세로 크기 |
+| width | Integer | X | 썸네일 가로 크기 (기본값: 700) |
+| height | Integer | X | 썸네일 세로 크기 (기본값: 500) |
 | tarPath | String | O | PDF 저장 경로 |
 | callBack | String | O | Callback URL |
 
 ---
 
-# 9. 파일 생성 규칙
+# 10. 파일 생성 규칙
 
 ## 입력 파일
 
@@ -199,7 +248,7 @@ isCatalog = true
 
 ---
 
-# 10. 내부 처리 프로세스
+# 11. 내부 처리 프로세스
 
 ## Step 1. 입력 데이터 검증
 
@@ -207,6 +256,8 @@ isCatalog = true
 
 - srcPath 존재 여부
 - 파일 확장자
+- MIME 타입
+- 파일 크기 제한
 - tarPath 경로
 - callback URL 유효성
 
@@ -259,7 +310,7 @@ isCatalog = true
 
 ---
 
-# 11. Callback 처리
+# 12. Callback 처리
 
 ## Callback 호출 시점
 
@@ -299,29 +350,44 @@ isCatalog = true
 
 ---
 
-# 12. 디렉토리 구조
+## Callback 실패 정책
+
+- Retry 3회
+- Timeout 10초
+
+---
+
+# 13. 디렉토리 구조
 
 ```text
-converter/
-
-├── main.py
-├── models/
-│   └── task.py
-├── services/
-│   ├── office_converter.py
-│   ├── thumbnail_service.py
-│   ├── catalog_service.py
-│   └── callback_service.py
-├── utils/
-│   ├── file_utils.py
-│   └── logger.py
-├── temp/
-└── logs/
+doc_tc/
+├── doc_tc.py                           ← CLI 진입점 (즉시 리턴)
+├── requirements.txt
+├── converter/
+│   ├── converter.py                    ← DocumentConverter 클래스
+│   ├── __init__.py
+│   ├── models/
+│   │   └── task.py                     ← ConvertTask 모델
+│   ├── services/
+│   │   ├── office_converter.py         ← LibreOffice PDF 변환
+│   │   ├── thumbnail_service.py        ← 썸네일 생성
+│   │   ├── catalog_service.py          ← 카탈로그 생성
+│   │   └── callback_service.py         ← Callback 호출
+│   ├── utils/
+│   │   ├── file_utils.py               ← 입력 검증
+│   │   └── logger.py                   ← 로거
+│   ├── temp/
+│   └── logs/
+├── test/
+│   ├── index.php                       ← 웹 테스트 페이지
+│   └── callback.php                    ← Callback 수신 테스트
+└── docs/
+    └── task.md
 ```
 
 ---
 
-# 13. 권장 클래스 구조
+# 14. 권장 클래스 구조
 
 ## Task 모델
 
@@ -359,7 +425,7 @@ class DocumentConverter:
 
 ---
 
-# 14. 이미지 생성 정책
+# 15. 이미지 생성 정책
 
 ## Thumbnail
 
@@ -384,7 +450,7 @@ class DocumentConverter:
 
 ---
 
-# 15. 성능 고려사항
+# 16. 성능 고려사항
 
 ## 예상 처리 시간
 
@@ -397,7 +463,7 @@ class DocumentConverter:
 
 ---
 
-# 16. LibreOffice 충돌 방지
+# 17. LibreOffice 충돌 방지
 
 동시 실행 시 충돌 방지를 위해
 Worker별 User Profile 분리 사용 권장
@@ -410,7 +476,7 @@ Worker별 User Profile 분리 사용 권장
 
 ---
 
-# 17. 예외 처리 정책
+# 18. 예외 처리 정책
 
 ## 처리 대상
 
@@ -423,46 +489,51 @@ Worker별 User Profile 분리 사용 권장
 
 ---
 
-## Callback 실패 정책
+# 19. 로그 정책
 
-- Retry 3회
-- Timeout 10초
+## 로그 파일 경로
+
+```text
+converter/logs/YYYYMMDD.log
+```
 
 ---
 
-# 18. 로그 정책
-
 ## 저장 로그
 
-- 작업 시작
-- PDF 생성 완료
-- Thumbnail 생성 완료
-- Catalog 생성 완료
+- 작업 시작 및 요청 파라미터
+- PDF 생성 완료 및 소요 시간
+- Thumbnail 생성 완료 및 소요 시간
+- Catalog 생성 완료 및 소요 시간
+- Callback URL 및 전송 파라미터
 - Callback 결과
-- 작업 종료
+- 작업 종료 및 총 소요 시간
 
 ---
 
 ## 로그 예시
 
 ```text
-[INFO] TASK START : 1001
-[INFO] PDF CREATED
-[INFO] THUMB CREATED
-[INFO] CATALOG CREATED
-[INFO] CALLBACK SUCCESS
-[INFO] TASK END
+[2026-06-01 10:00:00] [INFO] TASK START : 1
+[2026-06-01 10:00:00] [INFO] REQUEST srcPath=/app/input/test.pptx tarPath=/app/output/test.pdf isThumbNail=True isCatalog=True width=700 height=500 callBack=http://...
+[2026-06-01 10:00:12] [INFO] PDF CREATED : 12.43s
+[2026-06-01 10:00:12] [INFO] THUMB CREATED : 0.38s
+[2026-06-01 10:00:16] [INFO] CATALOG CREATED : 4.21s
+[2026-06-01 10:00:16] [INFO] CALLBACK URL : http://your-server/callback
+[2026-06-01 10:00:16] [INFO] CALLBACK PAYLOAD : {"result": true, ...}
+[2026-06-01 10:00:16] [INFO] CALLBACK SUCCESS : status=200
+[2026-06-01 10:00:16] [INFO] TASK END : 1 (17.02s)
 ```
 
 ---
 
-# 19. 보안 정책
+# 20. 보안 정책
 
 ## 파일 검증
 
 - 확장자 검사
 - MIME 검사
-- 파일 크기 제한
+- 파일 크기 제한 (500MB)
 
 ---
 
@@ -473,7 +544,26 @@ Worker별 User Profile 분리 사용 권장
 
 ---
 
-# 20. 최종 목표
+# 21. 서버 설치
+
+## 설치 경로
+
+```text
+/app/proxima-v6/external/doc_tc/
+```
+
+## 설치 명령
+
+```bash
+# 패키지 설치
+sudo dnf install -y python3.12 libreoffice file-libs
+curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
+python3.12 -m pip install -r requirements.txt --root-user-action=ignore
+```
+
+---
+
+# 22. 최종 목표
 
 본 시스템은 Linux 환경에서 안정적으로:
 
